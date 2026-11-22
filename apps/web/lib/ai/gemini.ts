@@ -8,7 +8,19 @@ import 'server-only';
 import type Anthropic from '@anthropic-ai/sdk';
 import { ApiError } from '../api';
 
-export const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-flash-latest';
+/**
+ * Modelos en orden de preferencia (GEMINI_MODEL="a,b,c" para cambiarlos). Si uno está saturado
+ * (503), agotó su cupo gratuito (429; el cupo es por modelo) o ya no existe (404), se prueba el
+ * siguiente.
+ */
+export const GEMINI_MODELS = (
+  process.env.GEMINI_MODEL || 'gemini-flash-latest,gemini-3.5-flash,gemini-flash-lite-latest'
+)
+  .split(',')
+  .map((m) => m.trim())
+  .filter(Boolean);
+export const GEMINI_MODEL = GEMINI_MODELS[0]!;
+const RETRY_NEXT = new Set([404, 429, 500, 503]);
 const ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models';
 
 type ParseParams = Parameters<Anthropic['beta']['messages']['parse']>[0];
@@ -59,29 +71,41 @@ export async function geminiParse(params: ParseParams): Promise<ParsedLike> {
 Responde ÚNICAMENTE con un objeto JSON válido (sin texto alrededor ni bloques de código) que cumpla este JSON Schema:
 ${JSON.stringify(format.schema)}`;
 
-  let res: Response;
-  try {
-    res = await fetch(`${ENDPOINT}/${GEMINI_MODEL}:generateContent`, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-goog-api-key': process.env.GEMINI_API_KEY ?? '',
-      },
-      body: JSON.stringify({
-        system_instruction: { parts: [{ text: system }] },
-        contents: [{ role: 'user', parts: toParts(content) }],
-        generationConfig: {
-          responseMimeType: 'application/json',
-          maxOutputTokens: params.max_tokens,
-          temperature: 0.7,
+  const body = JSON.stringify({
+    system_instruction: { parts: [{ text: system }] },
+    contents: [{ role: 'user', parts: toParts(content) }],
+    generationConfig: {
+      responseMimeType: 'application/json',
+      maxOutputTokens: params.max_tokens,
+      temperature: 0.7,
+    },
+  });
+
+  let res: Response | null = null;
+  let usedModel = GEMINI_MODEL;
+  for (const candidateModel of GEMINI_MODELS) {
+    usedModel = candidateModel;
+    try {
+      res = await fetch(`${ENDPOINT}/${candidateModel}:generateContent`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-goog-api-key': process.env.GEMINI_API_KEY ?? '',
         },
-      }),
-      signal: AbortSignal.timeout(180_000),
-    });
-  } catch (err) {
-    console.error('[ia] Gemini no responde:', (err as Error).message);
-    throw new ApiError(503, 'AI_UNAVAILABLE');
+        body,
+        signal: AbortSignal.timeout(180_000),
+      });
+    } catch (err) {
+      console.error(`[ia] Gemini (${candidateModel}) no responde:`, (err as Error).message);
+      res = null;
+      continue;
+    }
+    if (res.ok || !RETRY_NEXT.has(res.status)) break;
+    console.warn(
+      `[ia] Gemini ${candidateModel} respondió ${res.status}: pruebo el siguiente modelo`,
+    );
   }
+  if (!res) throw new ApiError(503, 'AI_UNAVAILABLE');
 
   if (!res.ok) {
     const detail = (await res.text().catch(() => '')).slice(0, 300);
@@ -89,7 +113,7 @@ ${JSON.stringify(format.schema)}`;
       console.error('[ia] clave de Gemini no válida:', detail);
       throw new ApiError(503, 'AI_MISCONFIGURED');
     }
-    // 429: se agotó el cupo gratuito (por minuto o por día)
+    // 429 en todos los modelos: se agotó el cupo gratuito (por minuto o por día)
     if (res.status === 429) throw new ApiError(503, 'AI_BUSY');
     if (res.status === 400) {
       console.error('[ia] Gemini rechazó la petición:', detail);
@@ -111,7 +135,7 @@ ${JSON.stringify(format.schema)}`;
     input_tokens: data.usageMetadata?.promptTokenCount ?? 0,
     output_tokens: data.usageMetadata?.candidatesTokenCount ?? 0,
   };
-  const model = data.modelVersion ?? GEMINI_MODEL;
+  const model = data.modelVersion ?? usedModel;
 
   if (
     data.promptFeedback?.blockReason ||

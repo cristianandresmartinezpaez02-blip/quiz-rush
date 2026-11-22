@@ -57,4 +57,18 @@ describe('geminiParse', () => {
     reply({ error: 'quota' }, 429);
     await expect(geminiParse(params)).rejects.toMatchObject({ code: 'AI_BUSY' });
   });
+
+  it('si un modelo está saturado, prueba el siguiente', async () => {
+    const ok = {
+      candidates: [{ content: { parts: [{ text: '{"title":"B","n":1}' }] }, finishReason: 'STOP' }],
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response('{}', { status: 503 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(ok), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const r = await geminiParse(params);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(r.parsed_output).toEqual({ title: 'B', n: 1 });
+  });
 });
