@@ -93,10 +93,16 @@ console.log(
   `🎮 Prueba de carga: ${PLAYERS} jugadores, ${PER_SECOND}/s, ${QUESTIONS} preguntas → ${RT_URLS.join(' + ')}`,
 );
 const host = web();
-await host('/api/auth/sign-in/email', {
-  method: 'POST',
-  body: { email: 'demo@quizrush.dev', password: 'QuizRush123!' },
-});
+// Anfitrión: la cuenta demo (local) o, con HOST_GUEST=1 (p. ej. en producción, donde las cuentas
+// de demostración no tienen contraseña), un invitado.
+if (process.env.HOST_GUEST === '1') {
+  await host('/api/auth/sign-in/anonymous', { method: 'POST', body: {} });
+} else {
+  await host('/api/auth/sign-in/email', {
+    method: 'POST',
+    body: { email: 'demo@quizrush.dev', password: 'QuizRush123!' },
+  });
+}
 const lib = await host('/api/library?q=capitales');
 const quiz = lib?.items?.[0];
 if (!quiz) throw new Error('No se encontró el quiz «Capitales» (¿npm run db:seed?)');

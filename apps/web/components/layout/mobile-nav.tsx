@@ -1,7 +1,8 @@
 'use client';
-// Barra de navegación inferior para el celular (botones grandes, estilo app).
+// Barra de navegación inferior para el celular (botones grandes, estilo app). El inicio está en
+// el logo de arriba; aquí va Clases, para que los estudiantes se unan a la de su profe.
 import { motion } from 'motion/react';
-import { Gamepad2, Home, Library, PlusCircle, Zap } from 'lucide-react';
+import { Gamepad2, GraduationCap, Library, PlusCircle, Zap } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
@@ -11,7 +12,6 @@ export function MobileNav() {
   const t = useTranslations('nav');
   const pathname = usePathname();
   const items = [
-    { href: '/', icon: Home, label: t('home'), match: (p: string) => p === '/' },
     {
       href: '/biblioteca',
       icon: Library,
@@ -23,6 +23,12 @@ export function MobileNav() {
       icon: Gamepad2,
       label: t('play'),
       match: (p: string) => p.startsWith('/jugar'),
+    },
+    {
+      href: '/clases',
+      icon: GraduationCap,
+      label: t('classes'),
+      match: (p: string) => p.startsWith('/clases') || p.startsWith('/certificado'),
     },
     {
       href: '/mis-quizzes',
