@@ -2,6 +2,10 @@
 // y una comunidad simulada (calificaciones, favoritos, comentarios, respuestas y seguidores).
 //
 // Uso: npm run db:seed   (idempotente: se puede ejecutar varias veces)
+//
+// MODO PÚBLICO (producción): SEED_PUBLIC=1 npm run db:seed
+//   Carga el mismo contenido de demostración, pero las cuentas autoras NO tienen contraseña
+//   (nadie puede iniciar sesión con ellas) y NO se crea la cuenta de administración.
 // Todas las cuentas usan la contraseña  QuizRush123!   (p. ej. demo@quizrush.dev)
 import { createHash, randomUUID } from 'node:crypto';
 import path from 'node:path';
@@ -45,6 +49,7 @@ const random = rng(42);
 const pickN = <T>(list: T[], n: number) => [...list].sort(() => random() - 0.5).slice(0, n);
 const between = (min: number, max: number) => min + Math.floor(random() * (max - min + 1));
 
+const PUBLIC_SEED = process.env.SEED_PUBLIC === '1';
 const passwordHash = await hashPassword(PASSWORD);
 
 async function ensureUser(u: SeedUser): Promise<string> {
@@ -63,15 +68,17 @@ async function ensureUser(u: SeedUser): Promise<string> {
   }
   const id = randomUUID();
   await db.user.create({ data: { id, email: u.email, name: u.name, emailVerified: true } });
-  await db.account.create({
-    data: {
-      id: randomUUID(),
-      accountId: id,
-      providerId: 'credential',
-      userId: id,
-      password: passwordHash,
-    },
-  });
+  // En modo público las cuentas de demostración no tienen contraseña: no se puede entrar con ellas
+  if (!PUBLIC_SEED)
+    await db.account.create({
+      data: {
+        id: randomUUID(),
+        accountId: id,
+        providerId: 'credential',
+        userId: id,
+        password: passwordHash,
+      },
+    });
   await db.profile.create({
     data: {
       userId: id,
@@ -156,11 +163,15 @@ async function main() {
   const userIds = new Map<string, string>();
   for (const u of [...CREATORS, ...FANS]) userIds.set(u.username, await ensureUser(u));
   const fanIds = FANS.map((f) => userIds.get(f.username)!);
-  const adminId = await ensureUser(ADMIN_USER);
-  await db.user.update({ where: { id: adminId }, data: { role: 'admin' } });
-  console.log(
-    `✓ ${userIds.size + 1} usuarios listos (contraseña: ${PASSWORD}; admin: ${ADMIN_USER.email})`,
-  );
+  if (PUBLIC_SEED) {
+    console.log(`✓ ${userIds.size} autores de demostración (sin contraseña ni administración)`);
+  } else {
+    const adminId = await ensureUser(ADMIN_USER);
+    await db.user.update({ where: { id: adminId }, data: { role: 'admin' } });
+    console.log(
+      `✓ ${userIds.size + 1} usuarios listos (contraseña: ${PASSWORD}; admin: ${ADMIN_USER.email})`,
+    );
+  }
 
   // Catálogos de progreso (logros, misiones, tienda, temporada) y bono de bienvenida para
   // probar la tienda. grant() es idempotente: no se repite al volver a ejecutar el seed.

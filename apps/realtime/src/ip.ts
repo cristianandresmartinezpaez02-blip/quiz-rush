@@ -19,7 +19,9 @@ export function clientIpFrom(headers: IncomingHttpHeaders): string | undefined {
   const forwarded = first(headers['x-forwarded-for'])?.split(',')[0]?.trim();
   if (forwarded && !warned) {
     warned = true;
-    console.warn(`[ip] No llega la cabecera "${IP_HEADER}" (CLIENT_IP_HEADER): uso X-Forwarded-For.`);
+    console.warn(
+      `[ip] No llega la cabecera "${IP_HEADER}" (CLIENT_IP_HEADER): uso X-Forwarded-For.`,
+    );
   }
   return forwarded?.slice(0, 64) || undefined;
 }
