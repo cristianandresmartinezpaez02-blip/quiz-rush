@@ -1,0 +1,240 @@
+@import 'tailwindcss';
+
+/* Modo oscuro controlado por la clase .dark en <html> (next-themes) */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ═══════════════ Tokens de diseño de Quiz_Rush ═══════════════
+   Identidad "energía eléctrica arcade": tinta nocturna + amarillo rayo + magenta.
+   Los colores semánticos cambian entre claro y oscuro mediante variables CSS. */
+:root {
+  --bg: #fff8ec;
+  --bg-elevated: #fff3dc;
+  --surface: #ffffff;
+  --surface-2: #fdf0d8;
+  --fg: #1a1640;
+  --muted: #5d5a7a;
+  --line: #ecdcbf;
+  --primary: #f5b800;
+  --primary-ink: #1a1640;
+  --primary-shadow: #b98600;
+  /* Rosa algo más oscuro en claro: texto blanco encima con contraste AA (4,9:1) */
+  --accent: #d61f72;
+  --accent-ink: #ffffff;
+  --accent-shadow: #9c1257;
+  --success: #12a150;
+  --danger: #d13438;
+  --danger-ink: #ffffff;
+  --ring: #d61f72;
+  color-scheme: light;
+}
+
+.dark {
+  --bg: #0e0b26;
+  --bg-elevated: #141035;
+  --surface: #1a1640;
+  --surface-2: #231e52;
+  --fg: #f5f3ff;
+  --muted: #a7a3cc;
+  --line: #2f2966;
+  --primary: #ffe14d;
+  --primary-ink: #1a1640;
+  --primary-shadow: #c9a400;
+  --accent: #ff3d9a;
+  /* En oscuro el rosa es claro: texto en tinta oscura (5,2:1; blanco solo daba 3,3:1) */
+  --accent-ink: #1a1640;
+  --accent-shadow: #b3246a;
+  --success: #3ddc84;
+  --danger: #ff6369;
+  --danger-ink: #1a1640;
+  --ring: #ffe14d;
+  color-scheme: dark;
+}
+
+/* Alto contraste (accesibilidad) */
+.high-contrast {
+  --fg: #ffffff;
+  --muted: #e6e6e6;
+  --line: #ffffff;
+  --bg: #000000;
+  --surface: #000000;
+  --surface-2: #111111;
+}
+:root:not(.dark).high-contrast {
+  --fg: #000000;
+  --muted: #1a1a1a;
+  --line: #000000;
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #f2f2f2;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-elevated: var(--bg-elevated);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-primary: var(--primary);
+  --color-primary-ink: var(--primary-ink);
+  --color-primary-shadow: var(--primary-shadow);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-shadow: var(--accent-shadow);
+  --color-success: var(--success);
+  --color-danger: var(--danger);
+  --color-danger-ink: var(--danger-ink);
+  --color-ring: var(--ring);
+
+  /* Colores de respuesta: siempre acompañados de forma + icono (no solo color) */
+  --color-ans-1: #22d3ee;
+  --color-ans-2: #a3e635;
+  --color-ans-3: #fb923c;
+  --color-ans-4: #f472b6;
+  --color-ans-5: #a78bfa;
+  --color-ans-6: #2dd4bf;
+
+  --font-display: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-nunito), ui-sans-serif, system-ui, sans-serif;
+
+  --radius-arcade: 1.125rem;
+
+  --animate-wiggle: wiggle 0.5s ease-in-out;
+  --animate-float: float 4s ease-in-out infinite;
+  --animate-spark: spark 1.6s ease-in-out infinite;
+}
+
+@keyframes wiggle {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(-6deg);
+  }
+  75% {
+    transform: rotate(6deg);
+  }
+}
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+@keyframes spark {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scaleX(0.6);
+  }
+}
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    /* Los brillos decorativos que asoman por los bordes no deben crear scroll lateral
+       (clip, a diferencia de hidden, no rompe el encabezado fijo) */
+    overflow-x: clip;
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+    /* Con texto grande (accesibilidad) una palabra larga no debe salirse de la pantalla */
+    overflow-wrap: break-word;
+    hyphens: auto;
+  }
+  :focus-visible {
+    outline: 3px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+  ::selection {
+    background: var(--primary);
+    color: var(--primary-ink);
+  }
+}
+
+/* Reducir animaciones: preferencia del sistema o del perfil */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+/* Tamaño del texto (accesibilidad): todo está en rem, así escala la interfaz entera */
+html.text-scale-115 {
+  font-size: 115%;
+}
+html.text-scale-130 {
+  font-size: 130%;
+}
+/* Con texto grande en pantallas estrechas el encabezado no cabe: el logo queda solo con el
+   icono (el nombre sigue ahí para lectores de pantalla) */
+@media (max-width: 520px) {
+  html.text-scale-115 .logo-word,
+  html.text-scale-130 .logo-word {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+/* En alto contraste, el foco aún más grueso */
+.high-contrast :focus-visible {
+  outline-width: 4px;
+}
+
+.reduce-motion *,
+.reduce-motion *::before,
+.reduce-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}
+
+@layer components {
+  /* Fondo decorativo con brillo de neón */
+  .bg-rush {
+    background:
+      radial-gradient(
+        60rem 30rem at 10% -10%,
+        color-mix(in oklab, var(--accent) 22%, transparent),
+        transparent 60%
+      ),
+      radial-gradient(
+        50rem 30rem at 110% 10%,
+        color-mix(in oklab, var(--primary) 18%, transparent),
+        transparent 60%
+      ),
+      var(--bg);
+  }
+  .card {
+    background: var(--surface);
+    border: 2px solid var(--line);
+    border-radius: var(--radius-arcade);
+  }
+}

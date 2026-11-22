@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="800" height="600">
+  <!-- Ilustración original para la pregunta de imagen revelada: un planeta con anillos (Saturno). -->
+  <defs>
+    <radialGradient id="cuerpo" cx="40%" cy="35%" r="70%">
+      <stop offset="0" stop-color="#fff3c4"/>
+      <stop offset=".55" stop-color="#e8b85c"/>
+      <stop offset="1" stop-color="#8a5a1e"/>
+    </radialGradient>
+  </defs>
+  <rect width="800" height="600" fill="#120d2e"/>
+  <g fill="#fff">
+    <circle cx="80" cy="70" r="2"/><circle cx="720" cy="90" r="3"/><circle cx="650" cy="520" r="2"/>
+    <circle cx="140" cy="480" r="3"/><circle cx="400" cy="40" r="2"/><circle cx="60" cy="300" r="2"/>
+    <circle cx="760" cy="330" r="2"/><circle cx="300" cy="560" r="2"/>
+  </g>
+  <!-- Anillo trasero -->
+  <ellipse cx="400" cy="300" rx="330" ry="80" fill="none" stroke="#d9c08a" stroke-width="26" transform="rotate(-18 400 300)" opacity=".8"/>
+  <!-- Planeta -->
+  <circle cx="400" cy="300" r="170" fill="url(#cuerpo)"/>
+  <g fill="none" stroke="#b9853a" stroke-width="10" opacity=".55">
+    <path d="M240 250 Q400 220 560 250"/>
+    <path d="M232 310 Q400 290 568 310"/>
+    <path d="M250 370 Q400 355 550 370"/>
+  </g>
+  <!-- Anillo delantero (solo la parte de abajo tapa el planeta) -->
+  <path d="M86 403 A330 80 -18 0 0 714 197" fill="none" stroke="#f0dca8" stroke-width="26" transform="rotate(0)" opacity=".95"/>
+</svg>

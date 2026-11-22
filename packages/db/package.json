@@ -1,0 +1,34 @@
+{
+  "name": "@quiz-rush/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./progress": "./src/progress/index.ts"
+  },
+  "scripts": {
+    "generate": "prisma generate",
+    "postinstall": "prisma generate",
+    "migrate:dev": "prisma migrate dev",
+    "migrate:deploy": "prisma migrate deploy",
+    "migrate:reset": "prisma migrate reset --force",
+    "seed": "tsx src/seed.ts",
+    "studio": "prisma studio",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src",
+    "test": "vitest run",
+    "admin:grant": "tsx src/grant-admin.ts"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.10.1",
+    "@prisma/client": "^7.10.1",
+    "pg": "^8.23.1",
+    "@quiz-rush/shared": "*"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.23.1",
+    "better-auth": "^1.7.25",
+    "prisma": "^7.10.1"
+  }
+}

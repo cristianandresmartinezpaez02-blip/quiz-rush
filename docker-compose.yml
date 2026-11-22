@@ -1,0 +1,101 @@
+# Infraestructura de desarrollo local de Quiz_Rush.
+# Arranca con: npm run infra:up   (o docker compose up -d)
+name: quiz-rush
+
+services:
+  # Base de datos principal
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: quizrush
+      POSTGRES_PASSWORD: quizrush
+      POSTGRES_DB: quizrush
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U quizrush -d quizrush']
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  # Pool de conexiones: las apps se conectan aquí (puerto 6432) para no saturar Postgres.
+  pgbouncer:
+    image: edoburu/pgbouncer:latest
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_USER: quizrush
+      DB_PASSWORD: quizrush
+      DB_HOST: postgres
+      DB_NAME: quizrush
+      AUTH_TYPE: scram-sha-256
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: 2000
+      DEFAULT_POOL_SIZE: 20
+      ADMIN_USERS: quizrush
+    ports:
+      - '6432:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -h 127.0.0.1 -p 5432 -U quizrush || exit 1']
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  # Estado de partidas, caché, rankings, rate limiting y colas
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes', '--maxmemory-policy', 'noeviction']
+    ports:
+      - '6379:6379'
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  # Servidor SMTP falso para ver los correos (enlaces mágicos) en http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    ports:
+      - '1025:1025'
+      - '8025:8025'
+    healthcheck:
+      test: ['CMD', '/mailpit', 'readyz']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # Buscador externo OPCIONAL (Fase 8). Solo arranca con: npm run search:up
+  # (perfil "search"). Sin él, la Biblioteca busca en PostgreSQL.
+  meilisearch:
+    image: getmeili/meilisearch:latest
+    profiles: [search]
+    restart: unless-stopped
+    environment:
+      MEILI_ENV: development
+      MEILI_MASTER_KEY: quizrush-dev-master-key-0123456789
+      MEILI_NO_ANALYTICS: 'true'
+    ports:
+      - '7700:7700'
+    volumes:
+      - meilidata:/meili_data
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1:7700/health || exit 1']
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  pgdata:
+  redisdata:
+  meilidata:

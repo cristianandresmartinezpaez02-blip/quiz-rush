@@ -1,0 +1,12 @@
+**/node_modules
+**/.next
+**/.next-dev
+**/dist
+**/.turbo
+**/.uploads
+**/coverage
+.env
+.env.*
+!.env.example
+.git
+e2e/screenshots

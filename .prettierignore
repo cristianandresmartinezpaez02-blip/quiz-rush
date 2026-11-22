@@ -1,0 +1,10 @@
+node_modules
+.next
+.next-dev
+dist
+coverage
+.turbo
+packages/db/src/generated
+packages/db/prisma/migrations
+*.md
+package-lock.json

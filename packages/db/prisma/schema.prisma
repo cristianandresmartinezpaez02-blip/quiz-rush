@@ -1,0 +1,1063 @@
+// ═══════════════════════════════════════════════════════════════════════
+//  Quiz_Rush — modelo de datos (PostgreSQL + Prisma 7)
+//  La URL de conexión se define en prisma.config.ts (no aquí).
+// ═══════════════════════════════════════════════════════════════════════
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ───────────────────────────── Enums ─────────────────────────────
+
+enum QuizStatus {
+  DRAFT // incompleto: solo lo ve su autor
+  PUBLISHED // completo: aparece en la Biblioteca General
+  HIDDEN // oculto por moderación
+}
+
+enum QuizVisibility {
+  PUBLIC
+  UNLISTED // solo con enlace (p. ej. tareas de clase)
+}
+
+enum ModerationStatus {
+  PENDING
+  APPROVED
+  FLAGGED
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum QuestionType {
+  MULTIPLE_CHOICE
+  TRUE_FALSE
+  TYPE_ANSWER
+  ORDER
+  MATCH
+  SLIDER
+  PIN
+  FILL_BLANK
+  AUDIO
+  REVEAL_IMAGE
+  POLL
+  WORD_CLOUD
+  OPEN_VOTE
+  DRAW
+}
+
+enum PointsMode {
+  NORMAL
+  DOUBLE
+  NONE
+}
+
+enum VersionReason {
+  AUTO
+  PUBLISH
+  RESTORE
+  MANUAL
+}
+
+enum MediaKind {
+  IMAGE
+  GIF
+  AUDIO
+  VIDEO
+}
+
+enum FriendshipStatus {
+  PENDING
+  ACCEPTED
+  BLOCKED
+}
+
+enum GameMode {
+  CLASSIC
+  TEAMS
+  SURVIVAL
+  RACE
+  BOSS
+  TOURNAMENT
+  TERRITORY
+  PRACTICE
+  RUSH
+  DUEL
+  CHALLENGE
+  DAILY
+  ADVENTURE
+  REVIEW
+  ASSIGNMENT
+}
+
+enum GameStatus {
+  LOBBY
+  IN_PROGRESS
+  FINISHED
+  CANCELLED
+}
+
+enum MissionPeriod {
+  DAILY
+  WEEKLY
+}
+
+enum Rank {
+  BRONZE
+  SILVER
+  GOLD
+  DIAMOND
+  LEGEND
+}
+
+enum LeagueResult {
+  PROMOTED
+  STAYED
+  RELEGATED
+}
+
+enum ShopItemType {
+  AVATAR_BODY
+  AVATAR_OUTFIT
+  ACCESSORY
+  FRAME
+  ENTRY_EFFECT
+  CELEBRATION
+  THEME
+  POWERUP
+}
+
+enum Rarity {
+  COMMON
+  RARE
+  EPIC
+  LEGENDARY
+}
+
+enum ClassRole {
+  TEACHER
+  STUDENT
+}
+
+enum ClubRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum ReportTarget {
+  QUIZ
+  COMMENT
+  USER
+}
+
+enum ReportReason {
+  OFFENSIVE
+  SPAM
+  WRONG_ANSWERS
+  COPYRIGHT
+  INAPPROPRIATE
+  OTHER
+}
+
+enum ReportStatus {
+  OPEN
+  RESOLVED
+  DISMISSED
+}
+
+// ─────────────────────── Autenticación (Better Auth) ───────────────────────
+
+model User {
+  id            String    @id
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  // Plugin "anonymous": usuarios invitados sin cuenta
+  isAnonymous   Boolean?  @default(false)
+  // Plugin "admin": roles y bloqueos
+  role          String?   @default("user")
+  banned        Boolean?  @default(false)
+  banReason     String?
+  banExpires    DateTime?
+
+  sessions Session[]
+  accounts Account[]
+
+  profile          Profile?
+  avatar           Avatar?
+  quizzes          Quiz[]              @relation("QuizAuthor")
+  quizVersions     QuizVersion[]
+  media            Media[]
+  collections      Collection[]
+  favorites        Favorite[]
+  ratings          Rating[]
+  comments         Comment[]
+  commentLikes     CommentLike[]
+  following        Follow[]            @relation("Follower")
+  followers        Follow[]            @relation("Following")
+  friendRequests   Friendship[]        @relation("Requester")
+  friendReceived   Friendship[]        @relation("Addressee")
+  hostedGames      GameSession[]       @relation("GameHost")
+  players          Player[]
+  missions         UserMission[]
+  achievements     UserAchievement[]
+  leagueMembership LeagueMembership[]
+  seasonProgress   SeasonProgress[]
+  inventory        Inventory[]
+  coinTransactions CoinTransaction[]
+  ownedClasses     Class[]             @relation("ClassOwner")
+  classMembership  ClassMember[]
+  clubMembership   ClubMember[]
+  reports          Report[]            @relation("Reporter")
+  resolvedReports  Report[]            @relation("Resolver")
+  notifications    Notification[]
+  pushSubs         PushSubscription[]
+  reviewItems      ReviewItem[]
+  adventure        AdventureProgress[]
+  rewardLogs       RewardLog[]
+  aiRequests       AiRequest[]
+
+  @@index([createdAt])
+}
+
+model Session {
+  id             String   @id
+  expiresAt      DateTime
+  token          String   @unique
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  ipAddress      String?
+  userAgent      String?
+  userId         String
+  impersonatedBy String?
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+}
+
+// Claves para firmar los JWT que valida el servidor de tiempo real
+model Jwks {
+  id         String    @id
+  publicKey  String
+  privateKey String
+  createdAt  DateTime
+  expiresAt  DateTime?
+  alg        String?
+  crv        String?
+}
+
+// ───────────────────────────── Perfil ─────────────────────────────
+
+model Profile {
+  userId              String    @id
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Siempre en minúsculas; se muestra con displayName
+  username            String    @unique
+  displayName         String
+  bio                 String?
+  country             String?   @db.Char(2)
+  locale              String    @default("es")
+  // Progreso
+  xp                  Int       @default(0)
+  level               Int       @default(1)
+  rank                Rank      @default(BRONZE)
+  coins               Int       @default(0)
+  dailyStreak         Int       @default(0)
+  bestDailyStreak     Int       @default(0)
+  lastDailyAt         DateTime? @db.Date
+  // Contadores desnormalizados (incrementos atómicos)
+  followersCount      Int       @default(0)
+  followingCount      Int       @default(0)
+  quizzesCount        Int       @default(0)
+  gamesPlayed         Int       @default(0)
+  totalCorrect        Int       @default(0)
+  totalAnswered       Int       @default(0)
+  // Accesibilidad y preferencias
+  reduceMotion        Boolean   @default(false)
+  highContrast        Boolean   @default(false)
+  soundEnabled        Boolean   @default(true)
+  extraTimePercent    Int       @default(0)
+  /// Tamaño del texto de la interfaz en % (100, 115 o 130)
+  textScale           Int       @default(100)
+  /// Mostrar a los amigos si estoy en línea y qué hago
+  showOnline          Boolean   @default(true)
+  /// Aceptar solicitudes de amistad de cualquiera (si no, nadie puede enviarlas)
+  allowFriendRequests Boolean   @default(true)
+  /// Contadores para logros que no tienen columna propia:
+  /// { wins, perfect, bestStreak, duelWins, rushBest, adventureStars, reviews, modes: [], dailyPlayed, nightGames }
+  stats               Json      @default("{}")
+  lastSeenAt          DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([xp(sort: Desc)])
+  @@index([country, xp(sort: Desc)])
+}
+
+model Avatar {
+  userId    String   @id
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// { base, skin, eyes, mouth, hair, outfit, accessory, colors… }
+  config    Json
+  updatedAt DateTime @updatedAt
+}
+
+// ───────────────────────────── Quizzes ─────────────────────────────
+
+model Quiz {
+  id                    String                   @id @default(cuid())
+  slug                  String                   @unique
+  authorId              String
+  author                User                     @relation("QuizAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  title                 String                   @default("")
+  description           String?
+  category              String?
+  language              String                   @default("es")
+  difficulty            Difficulty               @default(MEDIUM)
+  theme                 String                   @default("space")
+  coverUrl              String?
+  music                 String?
+  tags                  String[]                 @default([])
+  status                QuizStatus               @default(DRAFT)
+  visibility            QuizVisibility           @default(PUBLIC)
+  moderationStatus      ModerationStatus         @default(PENDING)
+  hiddenReason          String?
+  /// Se incrementa en cada autoguardado (control de concurrencia optimista)
+  revision              Int                      @default(0)
+  /// Borrador completo del editor (QuizDoc). Se escribe en cada autoguardado (1 sola fila).
+  /// Las tablas Question/Option guardan la versión PUBLICADA y solo se sincronizan
+  /// cuando el borrador es válido: editar un quiz publicado nunca rompe la Biblioteca.
+  draft                 Json
+  draftUpdatedAt        DateTime                 @default(now())
+  /// true si el borrador tiene cambios que aún no son válidos para publicarse
+  hasUnpublishedChanges Boolean                  @default(false)
+  /// Hash del contenido publicado (evita re-sincronizar si no cambió nada)
+  publishedHash         String?
+  /// Cómo empezó el quiz: AI, IMPORT, TEMPLATE:<id> (null = en blanco)
+  origin                String?
+  /// Campos derivados para filtrar sin hacer JOIN
+  questionCount         Int                      @default(0)
+  durationSec           Int                      @default(0)
+  questionTypes         QuestionType[]           @default([])
+  // Contadores (incrementos atómicos / agregados periódicos)
+  playCount             Int                      @default(0)
+  favoriteCount         Int                      @default(0)
+  commentCount          Int                      @default(0)
+  remixCount            Int                      @default(0)
+  ratingCount           Int                      @default(0)
+  ratingSum             Int                      @default(0)
+  ratingAvg             Float                    @default(0)
+  /// Media bayesiana (evita que un quiz con una sola nota de 5★ supere a uno con 500 notas de 4,8★)
+  ratingScore           Float                    @default(0)
+  trendingScore         Float                    @default(0)
+  // Remix: crédito al quiz original
+  remixOfId             String?
+  remixOf               Quiz?                    @relation("Remix", fields: [remixOfId], references: [id], onDelete: SetNull)
+  remixes               Quiz[]                   @relation("Remix")
+  publishedAt           DateTime?
+  createdAt             DateTime                 @default(now())
+  updatedAt             DateTime                 @updatedAt
+  deletedAt             DateTime?
+  /// Vector de búsqueda full-text (columna generada en SQL: título A, etiquetas B, descripción C)
+  searchVector          Unsupported("tsvector")? @default(dbgenerated())
+
+  questions       Question[]
+  versions        QuizVersion[]
+  favorites       Favorite[]
+  ratings         Rating[]
+  comments        Comment[]
+  collectionItems CollectionItem[]
+  games           GameSession[]
+  dailyChallenges DailyChallenge[]
+  assignments     Assignment[]
+  clubQuizzes     ClubQuiz[]
+
+  @@index([authorId, draftUpdatedAt(sort: Desc)])
+  @@index([status, publishedAt(sort: Desc)])
+  @@index([status, playCount(sort: Desc)])
+  @@index([status, trendingScore(sort: Desc)])
+  @@index([status, ratingScore(sort: Desc)])
+  @@index([status, category, language, difficulty])
+  @@index([remixOfId])
+  @@index([questionTypes], type: Gin)
+  @@index([tags], type: Gin)
+}
+
+model QuizVersion {
+  id            String        @id @default(cuid())
+  quizId        String
+  quiz          Quiz          @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  number        Int
+  reason        VersionReason @default(AUTO)
+  title         String
+  questionCount Int
+  /// Documento completo del quiz (QuizDoc) en el momento de la versión
+  snapshot      Json
+  createdById   String?
+  createdBy     User?         @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt     DateTime      @default(now())
+
+  @@unique([quizId, number])
+  @@index([quizId, createdAt(sort: Desc)])
+}
+
+model Question {
+  id          String       @id
+  quizId      String
+  quiz        Quiz         @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  position    Int
+  type        QuestionType
+  prompt      String
+  timeLimit   Int          @default(20)
+  points      PointsMode   @default(NORMAL)
+  hint        String?
+  explanation String?
+  /// { kind: image|gif|audio|youtube, url, start?, end? }
+  media       Json?
+  /// Configuración específica del tipo (ver packages/shared/questions/schemas.ts)
+  config      Json         @default("{}")
+  mediaId     String?
+  mediaFile   Media?       @relation(fields: [mediaId], references: [id], onDelete: SetNull)
+  options     Option[]
+  reviewItems ReviewItem[]
+
+  @@index([quizId, position])
+}
+
+model Option {
+  id         String   @id
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  position   Int
+  text       String
+  isCorrect  Boolean  @default(false)
+  imageUrl   String?
+
+  @@index([questionId, position])
+}
+
+model Media {
+  id        String     @id @default(cuid())
+  ownerId   String
+  owner     User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  kind      MediaKind
+  provider  String // "local" | "cloudinary"
+  key       String
+  url       String
+  mimeType  String
+  size      Int
+  width     Int?
+  height    Int?
+  createdAt DateTime   @default(now())
+  questions Question[]
+
+  @@index([ownerId, createdAt(sort: Desc)])
+}
+
+// ───────────────────────────── Comunidad ─────────────────────────────
+
+model Collection {
+  id          String           @id @default(cuid())
+  ownerId     String
+  owner       User             @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  isPublic    Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  items       CollectionItem[]
+
+  @@index([ownerId])
+}
+
+model CollectionItem {
+  collectionId String
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  quizId       String
+  quiz         Quiz       @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  addedAt      DateTime   @default(now())
+
+  @@id([collectionId, quizId])
+  @@index([quizId])
+}
+
+model Favorite {
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quizId    String
+  quiz      Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@id([userId, quizId])
+  @@index([quizId])
+  @@index([userId, createdAt(sort: Desc)])
+}
+
+model Rating {
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quizId    String
+  quiz      Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  stars     Int      @db.SmallInt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@id([userId, quizId])
+  @@index([quizId])
+}
+
+model Comment {
+  id         String        @id @default(cuid())
+  quizId     String
+  quiz       Quiz          @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  authorId   String
+  author     User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parentId   String?
+  parent     Comment?      @relation("Replies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies    Comment[]     @relation("Replies")
+  body       String
+  likeCount  Int           @default(0)
+  replyCount Int           @default(0)
+  hidden     Boolean       @default(false)
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+  likes      CommentLike[]
+
+  @@index([quizId, createdAt(sort: Desc)])
+  @@index([parentId])
+}
+
+model CommentLike {
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  commentId String
+  comment   Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@id([userId, commentId])
+}
+
+model Follow {
+  followerId  String
+  follower    User     @relation("Follower", fields: [followerId], references: [id], onDelete: Cascade)
+  followingId String
+  following   User     @relation("Following", fields: [followingId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@id([followerId, followingId])
+  @@index([followingId])
+}
+
+model Friendship {
+  id          String           @id @default(cuid())
+  requesterId String
+  requester   User             @relation("Requester", fields: [requesterId], references: [id], onDelete: Cascade)
+  addresseeId String
+  addressee   User             @relation("Addressee", fields: [addresseeId], references: [id], onDelete: Cascade)
+  status      FriendshipStatus @default(PENDING)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@unique([requesterId, addresseeId])
+  @@index([addresseeId, status])
+}
+
+model Club {
+  id          String       @id @default(cuid())
+  name        String
+  slug        String       @unique
+  description String?
+  iconUrl     String?
+  isPublic    Boolean      @default(true)
+  memberCount Int          @default(0)
+  /// Solo clubes privados: se entra con este código
+  inviteCode  String?      @unique
+  emoji       String       @default("🛡️")
+  color       String       @default("#7c5cff")
+  createdAt   DateTime     @default(now())
+  members     ClubMember[]
+  quizzes     ClubQuiz[]
+}
+
+model ClubMember {
+  clubId   String
+  club     Club     @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role     ClubRole @default(MEMBER)
+  points   Int      @default(0)
+  joinedAt DateTime @default(now())
+
+  @@id([clubId, userId])
+  @@index([userId])
+  @@index([clubId, points(sort: Desc)])
+}
+
+model ClubQuiz {
+  clubId    String
+  club      Club     @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  quizId    String
+  quiz      Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  addedById String?
+  addedAt   DateTime @default(now())
+
+  @@id([clubId, quizId])
+}
+
+// ───────────────────────────── Partidas ─────────────────────────────
+
+model GameSession {
+  id           String         @id @default(cuid())
+  /// PIN de 6 dígitos; solo es único mientras la partida está activa (se controla en Redis)
+  pin          String?
+  /// Opcional: el Rush, la Aventura y el Repaso mezclan preguntas de varios quizzes
+  quizId       String?
+  quiz         Quiz?          @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  hostId       String?
+  host         User?          @relation("GameHost", fields: [hostId], references: [id], onDelete: SetNull)
+  mode         GameMode       @default(CLASSIC)
+  status       GameStatus     @default(LOBBY)
+  /// { speedEnabled, powerUps, teamCount, lives, … }
+  settings     Json           @default("{}")
+  /// Copia congelada del quiz al crear la partida (las ediciones posteriores no la afectan)
+  quizSnapshot Json
+  playerCount  Int            @default(0)
+  /// Desafío por enlace: fecha límite para jugarlo
+  endsAt       DateTime?
+  /// Partidas en solitario: clave para sus rankings ("daily:2026-11-16", "challenge:<id>",
+  /// "rush:2026-11-16", "adventure:nature-3", "practice:<quizId>", "review")
+  soloKey      String?
+  assignmentId String?
+  assignment   Assignment?    @relation(fields: [assignmentId], references: [id], onDelete: SetNull)
+  startedAt    DateTime?
+  endedAt      DateTime?
+  createdAt    DateTime       @default(now())
+  teams        Team[]
+  players      Player[]
+  answers      PlayerAnswer[]
+
+  @@index([quizId, createdAt(sort: Desc)])
+  @@index([hostId, createdAt(sort: Desc)])
+  @@index([status, createdAt])
+  @@index([assignmentId])
+  @@index([soloKey, createdAt(sort: Desc)])
+}
+
+model Team {
+  id      String      @id @default(cuid())
+  gameId  String
+  game    GameSession @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  name    String
+  color   String
+  mascot  String
+  score   Int         @default(0)
+  players Player[]
+
+  @@index([gameId])
+}
+
+model Player {
+  id            String         @id @default(cuid())
+  gameId        String
+  game          GameSession    @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  userId        String?
+  user          User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  nickname      String
+  avatar        Json?
+  teamId        String?
+  team          Team?          @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  score         Int            @default(0)
+  correctCount  Int            @default(0)
+  answeredCount Int            @default(0)
+  bestStreak    Int            @default(0)
+  finalRank     Int?
+  kicked        Boolean        @default(false)
+  joinedAt      DateTime       @default(now())
+  answers       PlayerAnswer[]
+
+  @@index([gameId, score(sort: Desc)])
+  @@index([userId, joinedAt(sort: Desc)])
+}
+
+model PlayerAnswer {
+  id          String      @id @default(cuid())
+  gameId      String
+  game        GameSession @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  playerId    String
+  player      Player      @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  /// Id de la pregunta dentro del snapshot de la partida (sin FK: la pregunta puede
+  /// editarse o borrarse después sin perder los resultados históricos)
+  questionId  String
+  /// Respuesta cruda del jugador (ids de opción, texto, número…)
+  answer      Json
+  isCorrect   Boolean
+  correctness Float       @default(0)
+  points      Int         @default(0)
+  elapsedMs   Int
+  createdAt   DateTime    @default(now())
+
+  @@unique([playerId, questionId])
+  @@index([gameId, questionId])
+  @@index([questionId, isCorrect])
+}
+
+// ───────────────────────────── Progreso ─────────────────────────────
+
+model DailyChallenge {
+  id        String   @id @default(cuid())
+  date      DateTime @unique @db.Date
+  quizId    String
+  quiz      Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model Mission {
+  id          String        @id @default(cuid())
+  code        String        @unique
+  period      MissionPeriod
+  /// Tipo de objetivo: PLAY_QUIZZES, CORRECT_ANSWERS, CREATE_QUIZ, WIN_GAMES…
+  goalType    String
+  goalTarget  Int
+  /// Filtro opcional (p. ej. { category: "science" })
+  filter      Json?
+  rewardXp    Int           @default(0)
+  rewardCoins Int           @default(0)
+  active      Boolean       @default(true)
+  users       UserMission[]
+}
+
+model UserMission {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  missionId   String
+  mission     Mission   @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  /// "2026-11-15" (diaria) o "2026-W46" (semanal)
+  periodKey   String
+  progress    Int       @default(0)
+  completedAt DateTime?
+  claimedAt   DateTime?
+
+  @@unique([userId, missionId, periodKey])
+  @@index([userId, periodKey])
+}
+
+model Achievement {
+  id          String            @id @default(cuid())
+  code        String            @unique
+  icon        String
+  category    String
+  threshold   Int               @default(1)
+  rewardXp    Int               @default(0)
+  rewardCoins Int               @default(0)
+  secret      Boolean           @default(false)
+  users       UserAchievement[]
+}
+
+model UserAchievement {
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievementId String
+  achievement   Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+  unlockedAt    DateTime    @default(now())
+
+  @@id([userId, achievementId])
+}
+
+model League {
+  id        String             @id @default(cuid())
+  tier      Rank
+  /// "2026-W46"
+  weekKey   String
+  /// Grupo dentro de la división (máx. ~30 jugadores por grupo)
+  groupNo   Int
+  createdAt DateTime           @default(now())
+  members   LeagueMembership[]
+
+  @@unique([tier, weekKey, groupNo])
+}
+
+model LeagueMembership {
+  leagueId      String
+  league        League        @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  weeklyXp      Int           @default(0)
+  finalPosition Int?
+  result        LeagueResult?
+
+  @@id([leagueId, userId])
+  @@index([userId])
+  @@index([leagueId, weeklyXp(sort: Desc)])
+}
+
+model Season {
+  id       String           @id @default(cuid())
+  number   Int              @unique
+  name     String
+  startsAt DateTime
+  endsAt   DateTime
+  /// Recompensas por nivel de temporada
+  rewards  Json             @default("[]")
+  progress SeasonProgress[]
+  items    ShopItem[]
+}
+
+model SeasonProgress {
+  seasonId String
+  season   Season @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  points   Int    @default(0)
+  claimed  Int[]  @default([])
+
+  @@id([seasonId, userId])
+  @@index([seasonId, points(sort: Desc)])
+}
+
+// ───────────────────────────── Economía ─────────────────────────────
+
+model ShopItem {
+  id        String       @id @default(cuid())
+  code      String       @unique
+  type      ShopItemType
+  rarity    Rarity       @default(COMMON)
+  price     Int
+  /// Datos de presentación (sprite, colores, animación…)
+  data      Json         @default("{}")
+  seasonId  String?
+  season    Season?      @relation(fields: [seasonId], references: [id], onDelete: SetNull)
+  active    Boolean      @default(true)
+  createdAt DateTime     @default(now())
+  owners    Inventory[]
+
+  @@index([type, active])
+}
+
+model Inventory {
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  itemId     String
+  item       ShopItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  quantity   Int      @default(1)
+  equipped   Boolean  @default(false)
+  acquiredAt DateTime @default(now())
+
+  @@id([userId, itemId])
+}
+
+/// Libro contable de monedas: cada cambio de saldo queda registrado (auditoría y antifraude)
+model CoinTransaction {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount    Int
+  reason    String
+  refId     String?
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt(sort: Desc)])
+}
+
+// ───────────────────────── Profesores y empresas ─────────────────────────
+
+model Class {
+  id          String        @id @default(cuid())
+  name        String
+  description String?
+  ownerId     String
+  owner       User          @relation("ClassOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  joinCode    String        @unique
+  archived    Boolean       @default(false)
+  createdAt   DateTime      @default(now())
+  members     ClassMember[]
+  assignments Assignment[]
+
+  @@index([ownerId])
+}
+
+model ClassMember {
+  classId  String
+  class    Class     @relation(fields: [classId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role     ClassRole @default(STUDENT)
+  joinedAt DateTime  @default(now())
+
+  @@id([classId, userId])
+  @@index([userId])
+}
+
+model Assignment {
+  id        String        @id @default(cuid())
+  classId   String
+  class     Class         @relation(fields: [classId], references: [id], onDelete: Cascade)
+  quizId    String
+  quiz      Quiz          @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  title     String
+  dueAt     DateTime
+  /// { speedEnabled: false, maxAttempts, passingScore, certificate }
+  settings  Json          @default("{}")
+  createdAt DateTime      @default(now())
+  games     GameSession[]
+
+  @@index([classId, dueAt])
+}
+
+// ───────────────────────── Moderación y avisos ─────────────────────────
+
+model Report {
+  id           String       @id @default(cuid())
+  reporterId   String
+  reporter     User         @relation("Reporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  targetType   ReportTarget
+  targetId     String
+  reason       ReportReason
+  details      String?
+  status       ReportStatus @default(OPEN)
+  resolvedById String?
+  resolvedBy   User?        @relation("Resolver", fields: [resolvedById], references: [id], onDelete: SetNull)
+  resolvedAt   DateTime?
+  createdAt    DateTime     @default(now())
+
+  @@unique([reporterId, targetType, targetId])
+  @@index([status, createdAt])
+  @@index([targetType, targetId])
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// NEW_QUIZ_FROM_FOLLOWED, FRIEND_REQUEST, ACHIEVEMENT, GAME_INVITE…
+  type      String
+  data      Json      @default("{}")
+  readAt    DateTime?
+  /// Push enviado (o descartado); null = pendiente de enviar
+  pushedAt  DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([userId, readAt])
+  @@index([pushedAt, createdAt])
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+/// Repaso inteligente (repetición espaciada, algoritmo SM-2)
+model ReviewItem {
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  questionId  String
+  question    Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  easiness    Float    @default(2.5)
+  intervalDay Int      @default(0)
+  repetitions Int      @default(0)
+  dueAt       DateTime @default(now())
+  lapses      Int      @default(0)
+
+  @@id([userId, questionId])
+  @@index([userId, dueAt])
+}
+
+/// Modo Aventura: mejor resultado por nivel
+model AdventureProgress {
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// "nature-3"
+  levelKey  String
+  stars     Int      @default(0)
+  bestScore Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  @@id([userId, levelKey])
+}
+
+/// Registro de recompensas entregadas: garantiza que cada partida, misión o logro se paga UNA vez
+/// (aunque el servidor reintente o lleguen dos peticiones a la vez)
+model RewardLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// GAME, MISSION, ACHIEVEMENT, SEASON, LEAGUE, DAILY_STREAK…
+  source    String
+  refId     String
+  xp        Int      @default(0)
+  coins     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, source, refId])
+  @@index([userId, createdAt(sort: Desc)])
+}
+
+/// Uso de la IA: cupo diario por persona y seguimiento de tokens (coste)
+model AiRequest {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// GENERATE, DISTRACTORS, EXPLANATION, MODERATION
+  kind         String
+  /// OK, REFUSED, FAILED, INVALID
+  status       String
+  model        String
+  inputTokens  Int      @default(0)
+  outputTokens Int      @default(0)
+  durationMs   Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([kind, createdAt])
+}

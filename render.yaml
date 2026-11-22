@@ -1,0 +1,105 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  Quiz_Rush en Render (Blueprint). Crea la web, el servidor de tiempo real y Redis, en el
+#  plan gratuito. La base de datos es Supabase (fuera de Render).
+#
+#  Uso: Render → New → Blueprint → elige este repositorio. Te pedirá las variables marcadas
+#  con "sync: false" (secretos: nunca se guardan en el repositorio).
+#
+#  Si Render no puede usar los nombres quiz-rush-web / quiz-rush-realtime y les añade un
+#  sufijo, cambia las URLs de abajo (BETTER_AUTH_URL, NEXT_PUBLIC_APP_URL,
+#  NEXT_PUBLIC_REALTIME_URL, REALTIME_CORS_ORIGIN) y vuelve a desplegar.
+# ─────────────────────────────────────────────────────────────────────────────
+services:
+  # Web (Next.js): páginas, API y autenticación
+  - type: web
+    name: quiz-rush-web
+    runtime: docker
+    plan: free
+    region: virginia
+    dockerfilePath: ./apps/web/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NEXT_PUBLIC_APP_URL
+        value: https://quiz-rush-web.onrender.com
+      - key: BETTER_AUTH_URL
+        value: https://quiz-rush-web.onrender.com
+      - key: NEXT_PUBLIC_REALTIME_URL
+        value: https://quiz-rush-realtime.onrender.com
+      - key: BETTER_AUTH_SECRET
+        generateValue: true
+      - key: JOBS_SECRET
+        generateValue: true
+      # Supabase: pooler en modo transacción (puerto 6543) para la app
+      - key: DATABASE_URL
+        sync: false
+      # Supabase: pooler en modo sesión (puerto 5432), solo para migraciones
+      - key: DIRECT_DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: quiz-rush-redis
+          property: connectionString
+      - key: GOOGLE_CLIENT_ID
+        value: 651310291348-q7biu4rn1c3nf9angq3vqdvcataorlk2.apps.googleusercontent.com
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      # Notificaciones push (la pública no es secreta)
+      - key: NEXT_PUBLIC_VAPID_PUBLIC_KEY
+        value: BHtBRLPZx4j29F36XpW4HolXe1_I9ttc4FlvTorpRabUSQqZZgvHw1pidNky3sgo_-q7q3wh6qu6IHeL-vDXNEg
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      # Render va detrás de Cloudflare: la IP real llega en True-Client-IP
+      - key: CLIENT_IP_HEADER
+        value: true-client-ip
+      # Pocas conexiones por instancia: el pooler de Supabase gratis admite pocas
+      - key: DATABASE_POOL_MAX
+        value: '5'
+      # Correo para los enlaces mágicos (opcional; sin SMTP, entra con contraseña o Google)
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: '587'
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: EMAIL_FROM
+        value: Quiz_Rush <no-reply@quiz-rush.app>
+
+  # Tiempo real (Socket.IO): partidas en vivo y duelos
+  - type: web
+    name: quiz-rush-realtime
+    runtime: docker
+    plan: free
+    region: virginia
+    dockerfilePath: ./apps/realtime/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: BETTER_AUTH_URL
+        value: https://quiz-rush-web.onrender.com
+      - key: REALTIME_CORS_ORIGIN
+        value: https://quiz-rush-web.onrender.com
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: quiz-rush-redis
+          property: connectionString
+      - key: CLIENT_IP_HEADER
+        value: true-client-ip
+      - key: DATABASE_POOL_MAX
+        value: '3'
+
+  # Redis: estado de las partidas, cachés, rankings y límites. Solo accesible desde Render.
+  - type: keyvalue
+    name: quiz-rush-redis
+    plan: free
+    region: virginia
+    maxmemoryPolicy: noeviction
+    ipAllowList: []

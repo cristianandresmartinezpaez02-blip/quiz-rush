@@ -1,0 +1,33 @@
+import type { Metadata } from 'next';
+import { getTranslations } from 'next-intl/server';
+import { listMyQuizzes } from '@/lib/quiz-service';
+import { requirePageUser } from '@/lib/session';
+import { MyQuizzes } from './my-quizzes';
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('dashboard');
+  return { title: t('title') };
+}
+
+export default async function MyQuizzesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ nuevo?: string }>;
+}) {
+  const { nuevo } = await searchParams;
+  const user = await requirePageUser(nuevo ? '/mis-quizzes?nuevo=1' : '/mis-quizzes');
+  const [t, page] = await Promise.all([getTranslations('dashboard'), listMyQuizzes(user.id)]);
+
+  // Las fechas viajan como texto al componente cliente
+  const items = page.items.map((q) => ({ ...q, draftUpdatedAt: q.draftUpdatedAt.toISOString() }));
+
+  return (
+    <div className="mx-auto max-w-7xl px-4 py-10">
+      <div className="mb-8">
+        <h1 className="text-4xl font-extrabold">{t('title')}</h1>
+        <p className="mt-1 text-muted">{t('subtitle')}</p>
+      </div>
+      <MyQuizzes initialItems={items} initialCursor={page.nextCursor} autoCreate={nuevo === '1'} />
+    </div>
+  );
+}
