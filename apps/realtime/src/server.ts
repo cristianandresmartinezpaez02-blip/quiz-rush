@@ -9,6 +9,7 @@ import { config, newInstanceId, type Ctx, type IO } from './context';
 import { DuelManager } from './duel';
 import { GameEngine } from './game/engine';
 import { GameStore } from './game/store';
+import { db } from '@quiz-rush/db';
 import { registerHandlers } from './handlers';
 import { registerGauges, registry } from './metrics';
 
@@ -56,6 +57,22 @@ export async function createRealtime(opts: {
       } catch {
         /* Redis no disponible */
       }
+      // Base de datos: se informa pero no tumba el servicio (las partidas viven en Redis)
+      let dbStatus = 'down';
+      let dbError: string | undefined;
+      try {
+        await Promise.race([
+          db.$queryRaw`SELECT 1`,
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000)),
+        ]);
+        dbStatus = 'up';
+      } catch (err) {
+        // Sin credenciales: se quita cualquier URL de conexión del mensaje
+        dbError = String((err as Error).message ?? err)
+          .replace(/postgres(ql)?:\/\/\S+/g, '[url]')
+          .trim()
+          .slice(0, 160);
+      }
       const ok = redisStatus === 'up';
       res.writeHead(ok ? 200 : 503, {
         'content-type': 'application/json',
@@ -63,9 +80,11 @@ export async function createRealtime(opts: {
       });
       res.end(
         JSON.stringify({
-          status: ok ? 'ok' : 'degraded',
+          status: ok && dbStatus === 'up' ? 'ok' : 'degraded',
           service: 'realtime',
           redis: redisStatus,
+          database: dbStatus,
+          ...(dbError && { databaseError: dbError }),
           connections: io.engine.clientsCount,
           uptimeSec: Math.round((Date.now() - startedAt) / 1000),
         }),
