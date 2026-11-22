@@ -15,7 +15,7 @@ services:
     name: quiz-rush-web
     runtime: docker
     plan: free
-    region: virginia
+    region: oregon
     dockerfilePath: ./apps/web/Dockerfile
     dockerContext: .
     healthCheckPath: /health
@@ -74,7 +74,7 @@ services:
     name: quiz-rush-realtime
     runtime: docker
     plan: free
-    region: virginia
+    region: oregon
     dockerfilePath: ./apps/realtime/Dockerfile
     dockerContext: .
     healthCheckPath: /health
@@ -100,6 +100,6 @@ services:
   - type: keyvalue
     name: quiz-rush-redis
     plan: free
-    region: virginia
+    region: oregon
     maxmemoryPolicy: noeviction
     ipAllowList: []
