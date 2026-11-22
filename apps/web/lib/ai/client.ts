@@ -1,6 +1,8 @@
-// Cliente de Claude (API de Anthropic) para las funciones de IA de Quiz_Rush.
+// Cliente de IA de Quiz_Rush: Claude (API de Anthropic) o, como alternativa gratuita,
+// Google Gemini (GEMINI_API_KEY; ver lib/ai/gemini.ts).
 //
-//  • Sin ANTHROPIC_API_KEY la IA queda desactivada (la interfaz lo explica).
+//  • Sin ninguna de las dos claves la IA queda desactivada (la interfaz lo explica).
+//  • Con las dos, se usa Claude.
 //  • AI_MOCK=1 activa un modo simulado sin llamadas reales (pruebas automáticas y demos).
 //  • Cada llamada queda registrada en AiRequest (cupo diario por persona y tokens = coste).
 //  • Al API solo se envía el contenido del quiz o del material: nunca el correo ni el nombre.
@@ -8,6 +10,7 @@ import 'server-only';
 import Anthropic from '@anthropic-ai/sdk';
 import { db } from '@quiz-rush/db';
 import { ApiError } from '../api';
+import { geminiParse } from './gemini';
 
 export type AiStatus = 'live' | 'mock' | 'off';
 export type AiKind = 'GENERATE' | 'DISTRACTORS' | 'EXPLANATION' | 'MODERATION';
@@ -17,7 +20,25 @@ export const AI_MODEL = process.env.AI_MODEL || 'claude-opus-5-5';
 
 export function aiStatus(): AiStatus {
   if (process.env.AI_MOCK === '1') return 'mock';
-  return process.env.ANTHROPIC_API_KEY ? 'live' : 'off';
+  return process.env.ANTHROPIC_API_KEY || process.env.GEMINI_API_KEY ? 'live' : 'off';
+}
+
+/** Proveedor en uso: Claude si hay clave de Anthropic; si no, Gemini. */
+export function aiProvider(): 'anthropic' | 'gemini' {
+  return process.env.ANTHROPIC_API_KEY ? 'anthropic' : 'gemini';
+}
+
+/**
+ * Respuesta estructurada (JSON validado con Zod) del proveedor configurado, siempre con la forma
+ * de `anthropic().beta.messages.parse()`.
+ */
+export function aiParse<Params extends Parameters<Anthropic['beta']['messages']['parse']>[0]>(
+  params: Params,
+) {
+  const viaClaude = () => anthropic().beta.messages.parse(params);
+  if (aiProvider() === 'gemini')
+    return geminiParse(params) as unknown as ReturnType<typeof viaClaude>;
+  return viaClaude();
 }
 
 const globalForAi = globalThis as unknown as { __quizRushAnthropic?: Anthropic };

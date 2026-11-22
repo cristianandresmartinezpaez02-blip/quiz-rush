@@ -14,14 +14,7 @@ import {
   type QuizDoc,
 } from '@quiz-rush/shared';
 import { ApiError } from '../api';
-import {
-  AI_MODEL,
-  aiStatus,
-  anthropic,
-  assertAiAvailable,
-  logAiRequest,
-  mapAiError,
-} from './client';
+import { aiParse, AI_MODEL, aiStatus, assertAiAvailable, logAiRequest, mapAiError } from './client';
 import { fetchPageText } from './fetch-url';
 import { mockQuiz } from './mock';
 
@@ -165,7 +158,7 @@ async function callClaude(
   const { blocks } = await buildContent(o, file);
   const started = Date.now();
   try {
-    const response = await anthropic().beta.messages.parse({
+    const response = await aiParse({
       model: AI_MODEL,
       max_tokens: 16000,
       // Si el modelo declina por precaución, el servidor reintenta con un modelo de respaldo

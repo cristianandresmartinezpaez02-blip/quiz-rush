@@ -1541,7 +1541,7 @@
     "title": "Crear con IA",
     "subtitle": "Dale un tema, un texto, un PDF, un enlace o una foto y la IA prepara el quiz. Luego lo revisas en el editor.",
     "accountRequired": "Necesitas una cuenta para usar el generador con IA.",
-    "off": "La IA no está configurada en este servidor (falta ANTHROPIC_API_KEY).",
+    "off": "La IA no está configurada en este servidor (falta GEMINI_API_KEY, gratis, o ANTHROPIC_API_KEY).",
     "mock": "Modo simulado: las preguntas son de ejemplo, no las genera la IA real.",
     "sourceTitle": "¿De dónde salen las preguntas?",
     "sources": {

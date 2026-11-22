@@ -13,7 +13,7 @@ import { aiModerationSchema, type AiModeration } from '@quiz-rush/shared';
 import { runAtMostEvery } from '../cache';
 import { workerAlive } from '../jobs';
 import { publicQuizChanged } from '../public-changes';
-import { AI_MODEL, aiStatus, anthropic, logAiRequest } from './client';
+import { aiParse, AI_MODEL, aiStatus, logAiRequest } from './client';
 import { mockModeration } from './mock';
 
 const SETTLE_MS = 2 * 60_000;
@@ -70,7 +70,7 @@ export async function moderateQuiz(quizId: string): Promise<AiModeration | null>
   } else {
     const started = Date.now();
     try {
-      const response = await anthropic().beta.messages.parse({
+      const response = await aiParse({
         model: AI_MODEL,
         max_tokens: 1500,
         betas: ['server-side-fallback-2026-07-01'],

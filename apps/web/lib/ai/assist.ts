@@ -5,14 +5,7 @@ import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod';
 import { z } from 'zod';
 import { aiDistractorsSchema, aiExplanationSchema } from '@quiz-rush/shared';
 import { ApiError } from '../api';
-import {
-  AI_MODEL,
-  aiStatus,
-  anthropic,
-  assertAiAvailable,
-  logAiRequest,
-  mapAiError,
-} from './client';
+import { aiParse, AI_MODEL, aiStatus, assertAiAvailable, logAiRequest, mapAiError } from './client';
 import { mockDistractors } from './mock';
 
 export const assistRequestSchema = z.object({
@@ -37,7 +30,7 @@ async function run<T extends z.ZodType>(
 ) {
   const started = Date.now();
   try {
-    const response = await anthropic().beta.messages.parse({
+    const response = await aiParse({
       model: AI_MODEL,
       max_tokens: 2000,
       betas: ['server-side-fallback-2026-07-01'],
