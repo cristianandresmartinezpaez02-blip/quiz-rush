@@ -67,6 +67,8 @@ interface EditorState {
   updateQuestion: (id: string, recipe: (q: QuestionDoc) => void) => void;
   changeType: (id: string, type: QuestionType) => void;
 
+  /** Pide guardar aunque no haya ediciones (p. ej. publicar un quiz completo recién creado) */
+  requestSave: () => void;
   markSaving: () => void;
   markSaved: (seq: number, result: SaveResult) => void;
   markError: (offline: boolean) => void;
@@ -195,6 +197,7 @@ export const useEditorStore = create<EditorState>()(
           touch(s);
         }),
 
+      requestSave: () => set((s) => touch(s)),
       markSaving: () => set((s) => void (s.saveState = 'saving')),
 
       markSaved: (seq, result) =>

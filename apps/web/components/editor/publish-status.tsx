@@ -33,7 +33,9 @@ export function PublishStatus({ issues }: { issues: ValidationIssue[] }) {
       ? t('publish.published')
       : published
         ? t('issuesCount', { count: issues.length })
-        : `${t('publish.draft')} · ${t('issuesCount', { count: issues.length })}`;
+        : ok
+          ? t('publish.publishing')
+          : `${t('publish.draft')} · ${t('issuesCount', { count: issues.length })}`;
 
   return (
     <div ref={ref} className="relative">
@@ -60,7 +62,9 @@ export function PublishStatus({ issues }: { issues: ValidationIssue[] }) {
       {open && (
         <div className="card absolute right-0 z-30 mt-2 w-80 p-4 shadow-2xl">
           {ok && !hidden ? (
-            <p className="text-sm font-semibold">✅ {t('publish.published')}</p>
+            <p className="text-sm font-semibold">
+              {published ? `✅ ${t('publish.published')}` : `⏳ ${t('publish.willPublish')}`}
+            </p>
           ) : (
             <>
               {published && !hidden && (

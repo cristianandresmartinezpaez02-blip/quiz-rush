@@ -46,6 +46,10 @@ export function Editor({ initial }: { initial: ServerQuizState }) {
     useEditorStore.getState().init(initial, recoverable ? backup.doc : undefined);
     if (recoverable) toast.info(t('recovered'));
     else if (backup) clearBackup(initial.id);
+    // Un quiz COMPLETO que sigue en borrador (creado con IA, desde una plantilla o importado, y
+    // aún sin tocar) se publica ya: el autoguardado solo se activa con ediciones.
+    const st = useEditorStore.getState();
+    if (st.status === 'DRAFT' && validateQuiz(st.doc).length === 0) st.requestSave();
   }, [initial, t]);
 
   const issues = useMemo(() => validateQuiz(doc), [doc]);

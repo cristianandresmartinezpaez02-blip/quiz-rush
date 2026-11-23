@@ -149,7 +149,9 @@
       "draft": "Draft",
       "unpublished": "There are unpublished changes: fix the warnings to update the library",
       "hidden": "Hidden by moderation",
-      "checklist": "To publish you still need:"
+      "checklist": "To publish you still need:",
+      "publishing": "Complete · publishing…",
+      "willPublish": "It is complete: it goes to the Library as soon as it saves (a few seconds)."
     },
     "versions": "Versions",
     "preview": "Test",

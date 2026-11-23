@@ -149,7 +149,9 @@
       "draft": "Borrador",
       "unpublished": "Hay cambios sin publicar: corrige los avisos para actualizar la biblioteca",
       "hidden": "Oculto por moderación",
-      "checklist": "Para publicar falta:"
+      "checklist": "Para publicar falta:",
+      "publishing": "Completo · publicándose…",
+      "willPublish": "Está completo: se publica en la Biblioteca en cuanto se guarde (unos segundos)."
     },
     "versions": "Versiones",
     "preview": "Probar",
